@@ -61,3 +61,17 @@ def flag_util_lies(rows, util_threshold: float = 0.90, mfu_threshold: float = 0.
 def idle_waste_usd(idle_hours: float, on_demand_hr: float) -> float:
     """Dollars burned by a GPU left running idle (training done, instance up)."""
     return max(0.0, idle_hours) * max(0.0, on_demand_hr)
+
+
+def bandwidth_cost_efficiency(on_demand_hr: float, peak_bw_tbs: float) -> float:
+    """Dollar cost per TB/s memory bandwidth per hour ($ / TB/s-hr). Lower is better."""
+    if peak_bw_tbs <= 0:
+        return float("inf")
+    return on_demand_hr / peak_bw_tbs
+
+
+def vram_cost_efficiency(on_demand_hr: float, hbm_gb: float) -> float:
+    """Dollar cost per GB VRAM per hour ($ / GB-hr). Lower is better."""
+    if hbm_gb <= 0:
+        return float("inf")
+    return on_demand_hr / hbm_gb

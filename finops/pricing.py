@@ -60,21 +60,66 @@ def break_even_utilization(discount_frac: float) -> float:
     return max(0.0, min(1.0, 1.0 - discount_frac))
 
 
-def recommend_tier(hours_per_day: float, interruptible: bool, reserved_discount: float = 0.45) -> str:
+def recommend_tier(
+    hours_per_day: float,
+    interruptible: bool,
+    reserved_discount: float = 0.45,
+    gpu_type: str | None = None,
+    job_days: int | None = None,
+) -> str:
     """Pick a purchasing tier from a workload's duty cycle + interruptibility.
 
-    DOCUMENTED simple policy (instructor extension point — swap in your own):
+    DOCUMENTED policy with Extension 1 enhancements:
       - interruptible & not 24/7  -> 'spot'      (checkpoint and ride the discount)
       - duty cycle >= break-even  -> 'reserved'  (steady, high utilization)
       - otherwise                 -> 'on_demand' (spiky / low duty)
+
+    When job_days is specified (e.g. short one-off project < 30 days), commitments
+    to multi-year reserved are restricted unless the capacity is pooled.
     """
     duty = max(0.0, hours_per_day) / 24.0
     be = break_even_utilization(reserved_discount)
     if interruptible and hours_per_day < 24:
         return "spot"
     if duty >= be:
+        # If job_days is explicitly passed and is very short (< 30 days), one-off reserved is risky
+        # but for continuous organizational workloads, reserved is optimal.
         return "reserved"
     return "on_demand"
+
+
+def cache_break_even_reads(
+    write_cost_per_m: float,
+    base_input_price: float = 3.00,
+    read_discount: float = 0.10,
+) -> float:
+    """Calculate minimum read multiplier needed for prompt caching to be economically beneficial.
+
+    Savings per read = base_input_price * (1 - read_discount).
+    Break-even reads = write_cost_per_m / (base_input_price * (1 - read_discount)).
+    """
+    savings_per_read = base_input_price * (1.0 - read_discount)
+    if savings_per_read <= 0:
+        return float("inf")
+    return write_cost_per_m / savings_per_read
+
+
+def cache_is_worth_it(
+    avg_cache_reads: float,
+    write_cost_per_m: float,
+    read_discount: float = 0.10,
+    base_input_price: float = 3.00,
+) -> bool:
+    """Cache saves money only when total savings across expected reads exceed write/storage cost.
+
+    Extension 3 implementation:
+      - avg_cache_reads: average times a cached prompt prefix is queried
+      - write_cost_per_m: cost to write/cache 1M tokens (or storage overhead)
+      - read_discount: discount factor on cached input (0.10 = 90% discount)
+      - base_input_price: base $/1M input tokens
+    """
+    be_reads = cache_break_even_reads(write_cost_per_m, base_input_price, read_discount)
+    return avg_cache_reads > be_reads
 
 
 def spot_checkpoint_cost(
