@@ -1,4 +1,4 @@
-# Lab 25 — Tối ưu hóa Chi phí GPU (GPU FinOps Workshop)
+# GPU-FinOps-Cost-Optimization-Lab
 
 > **AICB · Phase 2 · Track 2 (Infrastructure) · Day 25**
 > Kết hợp với slide `day25-gpu-finops-cost-optimization`.
